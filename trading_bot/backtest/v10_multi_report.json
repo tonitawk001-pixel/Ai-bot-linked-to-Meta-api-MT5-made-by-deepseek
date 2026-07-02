@@ -1,0 +1,30 @@
+{
+  "multi": {
+    "total_trades_avg": 88.8,
+    "total_trades_std": 16.33,
+    "wins_avg": 79.8,
+    "wins_std": 21.18,
+    "losses_avg": 9.0,
+    "losses_std": 5.55,
+    "win_rate_avg": 88.2,
+    "win_rate_std": 9.45,
+    "profit_factor_avg": 4.9,
+    "profit_factor_std": 4.37,
+    "total_pnl_avg": 2207.97,
+    "total_pnl_std": 1625.21,
+    "return_pct_avg": 22.08,
+    "return_pct_std": 16.25,
+    "max_dd_pct_avg": 7.44,
+    "max_dd_pct_std": 4.14,
+    "avg_trades_day_avg": 12.7,
+    "avg_trades_day_std": 2.33,
+    "avg_win_avg": 42.03,
+    "avg_win_std": 6.45,
+    "avg_loss_avg": 155.41,
+    "avg_loss_std": 66.53,
+    "longest_win_avg": 75.2,
+    "longest_win_std": 24.15,
+    "longest_loss_avg": 7.2,
+    "longest_loss_std": 4.71
+  }
+}

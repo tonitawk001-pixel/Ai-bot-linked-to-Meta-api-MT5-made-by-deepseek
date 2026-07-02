@@ -1,0 +1,15 @@
+{
+  "summary": {
+    "total_trades": 100,
+    "wins": 69,
+    "losses": 31,
+    "win_rate": 69.0,
+    "profit_factor": 2.12,
+    "total_pnl": 46.56,
+    "return_pct": 15.52,
+    "max_dd_pct": 7.97,
+    "final_balance": 346.56,
+    "longest_win": 24,
+    "longest_loss": 18
+  }
+}

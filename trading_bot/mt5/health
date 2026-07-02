@@ -1,0 +1,109 @@
+"""
+MT5 Health Monitor — Continuously checks MT5 connection status.
+
+Features:
+- Check MT5 connection every cycle
+- Verify account login is active
+- Detect silent disconnection (no data received)
+- Trigger immediate reconnect on failure
+- Log disconnection events as CRITICAL
+- Pause trading until reconnection succeeds
+"""
+
+import time
+from datetime import datetime
+from typing import Optional
+import MetaTrader5 as mt5
+from trading_bot.config import Config
+from trading_bot.utils.logger import logger
+
+
+class MT5HealthMonitor:
+    def __init__(self, max_reconnect_retries=10, reconnect_delay=5):
+        self._connected = False
+        self._last_data_time = None
+        self._reconnect_count = 0
+        self._max_retries = max_reconnect_retries
+        self._reconnect_delay = reconnect_delay
+        self._paused = False
+        self._last_check_time = None
+        logger.info("MT5HealthMonitor initialized")
+
+    def check_connection(self):
+        self._last_check_time = datetime.now()
+        try:
+            ti = mt5.terminal_info()
+        except Exception as e:
+            logger.error(f"terminal_info() exception: {e}")
+            ti = None
+        if ti is None:
+            self._connected = False
+            logger.critical("MT5 HEALTH: Terminal unreachable")
+            self._trigger_reconnect()
+            return False
+
+        try:
+            ai = mt5.account_info()
+        except Exception as e:
+            logger.error(f"account_info() exception: {e}")
+            ai = None
+        if ai is None:
+            self._connected = False
+            logger.critical("MT5 HEALTH: Account login lost")
+            self._trigger_reconnect()
+            return False
+
+        if self._last_data_time:
+            elapsed = (datetime.now() - self._last_data_time).total_seconds()
+            if elapsed > 300:
+                logger.warning(f"MT5 HEALTH: No data for {elapsed:.0f}s")
+                self._trigger_reconnect()
+                return False
+
+        if not self._connected:
+            logger.info("MT5 HEALTH: Connection RESTORED")
+            self._reconnect_count = 0
+        self._connected = True
+        self._paused = False
+        logger.debug("MT5 HEALTH: Connected")
+        return True
+
+    def report_data_received(self):
+        self._last_data_time = datetime.now()
+
+    def _trigger_reconnect(self):
+        self._reconnect_count += 1
+        logger.critical(f"MT5 HEALTH: Reconnecting (attempt #{self._reconnect_count})")
+        if self._reconnect_count > self._max_retries:
+            logger.critical(f"MT5 HEALTH: Max retries exceeded. Pausing.")
+            self._paused = True
+            return
+        try:
+            mt5.shutdown()
+        except:
+            pass
+        time.sleep(self._reconnect_delay)
+        try:
+            ok = mt5.initialize(path=Config.MT5_PATH, login=Config.MT5_LOGIN,
+                                password=Config.MT5_PASSWORD, server=Config.MT5_SERVER)
+            if ok:
+                self._connected = True; self._paused = False; self._reconnect_count = 0
+                logger.info("MT5 HEALTH: Reconnection SUCCESSFUL")
+            else:
+                logger.error(f"MT5 HEALTH: Reconnection FAILED (#{self._reconnect_count})")
+        except Exception as e:
+            logger.error(f"MT5 HEALTH: Reconnection exception: {e}")
+
+    @property
+    def is_healthy(self):
+        return self._connected and not self._paused
+
+    @property
+    def is_paused(self):
+        return self._paused
+
+    @property
+    def status(self):
+        return {"connected": self._connected, "paused": self._paused,
+                "reconnect_attempts": self._reconnect_count,
+                "last_check": str(self._last_check_time) if self._last_check_time else None}

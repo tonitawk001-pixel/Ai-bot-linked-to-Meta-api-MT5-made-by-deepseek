@@ -1,0 +1,268 @@
+{
+  "report_metadata": {
+    "title": "V3 PROFITABLE Gold Scalping \u2014 7-Day XAUUSD Backtest",
+    "generated_at": "2026-06-18 13:54:37.182052",
+    "data_range": "2026-01-01 00:00:00+00:00 to 2026-01-07 23:59:00+00:00",
+    "strategy_version": "V3 Profitable Strategy",
+    "parameters": {
+      "initial_balance": 10000.0,
+      "lot_size": 0.1,
+      "max_positions": 3,
+      "max_trades_per_day": 30,
+      "min_score": 60,
+      "max_score": 89,
+      "sl_atr": 2.5,
+      "tp_atr": 3.5,
+      "min_m5_gap": 1,
+      "asian_block_rate": 0.0
+    }
+  },
+  "executive_summary": {
+    "total_trades": 30,
+    "winning_trades": 19,
+    "losing_trades": 11,
+    "breakeven_trades": 0,
+    "win_rate_pct": 63.3,
+    "profit_factor": 1.91,
+    "expectancy_per_trade": 0.32,
+    "total_pnl_usd": 9.54,
+    "final_balance": 10009.54,
+    "return_pct": 0.1,
+    "max_drawdown_pct": 0.05,
+    "max_drawdown_usd": 4.65,
+    "avg_trades_per_day": 4.3,
+    "avg_win_usd": 1.05,
+    "avg_loss_usd": 0.95,
+    "win_loss_ratio": 1.11,
+    "longest_win_streak": 8,
+    "longest_loss_streak": 5,
+    "signals_generated_total": 1136,
+    "signals_converted_to_trades_pct": 2.6,
+    "signals_blocked_total": 1106
+  },
+  "session_performance": {
+    "london": {
+      "trades": 30,
+      "wins": 19,
+      "win_rate": 63.3,
+      "total_pnl": 9.54,
+      "avg_pnl": 0.32
+    }
+  },
+  "news_impact": {
+    "low": {
+      "trades": 30,
+      "wins": 19,
+      "win_rate": 63.3,
+      "total_pnl": 9.54
+    }
+  },
+  "regime_performance": {
+    "bullish_trend": {
+      "trades": 30,
+      "wins": 19,
+      "win_rate": 63.3,
+      "total_pnl": 9.54,
+      "avg_pnl": 0.32
+    }
+  },
+  "score_quality_analysis": {
+    "60-69": {
+      "signals_generated": 199,
+      "trades_executed": 6,
+      "conversion_rate": 3.0,
+      "wins": 3,
+      "win_rate": 50.0,
+      "total_pnl": 0.36
+    },
+    "80-89": {
+      "signals_generated": 923,
+      "trades_executed": 24,
+      "conversion_rate": 2.6,
+      "wins": 16,
+      "win_rate": 66.7,
+      "total_pnl": 9.18
+    }
+  },
+  "hourly_performance": {
+    "08:00": {
+      "signals": 54,
+      "trades": 6,
+      "wins": 4,
+      "win_rate": 66.7,
+      "total_pnl": 1.23
+    },
+    "09:00": {
+      "signals": 58,
+      "trades": 12,
+      "wins": 7,
+      "win_rate": 58.3,
+      "total_pnl": 5.1
+    },
+    "10:00": {
+      "signals": 45,
+      "trades": 7,
+      "wins": 5,
+      "win_rate": 71.4,
+      "total_pnl": 4.46
+    },
+    "11:00": {
+      "signals": 50,
+      "trades": 5,
+      "wins": 3,
+      "win_rate": 60.0,
+      "total_pnl": -1.25
+    }
+  },
+  "blocked_signals_analysis": {
+    "total_blocked": 1106,
+    "by_reason": {
+      "max_daily_trades_30": 1106
+    },
+    "signal_score_filter": 0,
+    "avg_blocked_score": 80.5
+  },
+  "worst_5_trades": [
+    {
+      "time": "2026-01-01 09:30:00+00:00",
+      "direction": "SELL",
+      "entry": 2374.33,
+      "pnl": -1.6,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 80
+    },
+    {
+      "time": "2026-01-01 10:50:00+00:00",
+      "direction": "SELL",
+      "entry": 2353.71,
+      "pnl": -1.58,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 11:20:00+00:00",
+      "direction": "SELL",
+      "entry": 2358.1,
+      "pnl": -1.39,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 11:45:00+00:00",
+      "direction": "SELL",
+      "entry": 2371.78,
+      "pnl": -1.22,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 09:25:00+00:00",
+      "direction": "SELL",
+      "entry": 2370.52,
+      "pnl": -1.01,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 65
+    }
+  ],
+  "best_5_trades": [
+    {
+      "time": "2026-01-01 09:55:00+00:00",
+      "direction": "SELL",
+      "entry": 2386.72,
+      "pnl": 2.28,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 10:05:00+00:00",
+      "direction": "SELL",
+      "entry": 2377.57,
+      "pnl": 2.27,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 10:00:00+00:00",
+      "direction": "SELL",
+      "entry": 2382.87,
+      "pnl": 2.12,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 09:00:00+00:00",
+      "direction": "SELL",
+      "entry": 2401.12,
+      "pnl": 2.02,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 09:10:00+00:00",
+      "direction": "SELL",
+      "entry": 2389.84,
+      "pnl": 1.93,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 80
+    }
+  ],
+  "daily_breakdown": {
+    "2026-01-01": {
+      "trades": 30,
+      "day_pnl": 9.54
+    },
+    "2026-01-02": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-03": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-04": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-05": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-06": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-07": {
+      "trades": 0,
+      "day_pnl": 0
+    }
+  },
+  "trade_exit_reasons": {
+    "MAX_HOLD": "30"
+  },
+  "equity_metrics": {
+    "starting_balance": 10000.0,
+    "peak_balance": 10013.32,
+    "trough_balance": 9999.78,
+    "final_balance": 10009.54
+  }
+}

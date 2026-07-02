@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="60">
+<title>V22 Gold Scalping Bot — Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; padding: 20px; }
+.container { max-width: 800px; margin: 0 auto; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+h1 { font-size: 1.5em; margin-bottom: 20px; color: #58a6ff; }
+h2 { font-size: 1.1em; margin-bottom: 12px; color: #8b949e; }
+.balance { font-size: 2em; font-weight: bold; color: #3fb950; }
+.balance.loss { color: #f85149; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat { background: #0d1117; padding: 12px; border-radius: 6px; }
+.stat .label { font-size: 0.8em; color: #8b949e; margin-bottom: 4px; }
+.stat .value { font-size: 1.2em; font-weight: bold; }
+.profit { color: #3fb950; }
+.loss-text { color: #f85149; }
+.btn { 
+  display: inline-block; padding: 10px 24px; border: none; border-radius: 6px;
+  font-size: 1em; cursor: pointer; font-weight: bold; transition: 0.2s;
+}
+.btn-pause { background: #f0883e; color: #000; }
+.btn-resume { background: #3fb950; color: #000; }
+.btn:hover { opacity: 0.85; }
+.status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; }
+.status-running { background: #238636; color: #fff; }
+.status-paused { background: #9e6a03; color: #fff; }
+.status-halted { background: #da3633; color: #fff; }
+.status-starting { background: #6e7681; color: #fff; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid #30363d; font-size: 0.9em; }
+th { color: #8b949e; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚡ V22 Gold Scalping Bot</h1>
+  
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h2>Account Balance</h2>
+        <div class="balance" id="balance">$---</div>
+      </div>
+      <div>
+        <div id="statusBadge" class="status-badge status-starting">STARTING</div>
+        <br><br>
+        <button id="pauseBtn" class="btn btn-pause" onclick="togglePause()">⏸ Pause</button>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="stat">
+        <div class="label">Equity</div>
+        <div class="value" id="equity">$---</div>
+      </div>
+      <div class="stat">
+        <div class="label">Today's P/L</div>
+        <div class="value" id="dailyPnl">$0.00</div>
+      </div>
+      <div class="stat">
+        <div class="label">Open Positions</div>
+        <div class="value" id="openPos">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Consecutive Losses</div>
+        <div class="value" id="consLoss">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Cycle #</div>
+        <div class="value" id="cycle">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Risk Tier</div>
+        <div class="value" id="riskTier">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Open Positions</h2>
+    <table>
+      <thead><tr><th>Direction</th><th>Entry</th><th>SL</th><th>TP</th><th>Lot</th><th>Breakeven?</th></tr></thead>
+      <tbody id="positionsTable"><tr><td colspan="6" style="text-align:center; color:#6e7681;">No open positions</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Last 24 Hours — Trade History</h2>
+    <table>
+      <thead><tr><th>Time</th><th>Direction</th><th>Entry</th><th>P/L</th><th>Reason</th></tr></thead>
+      <tbody id="tradesTable"><tr><td colspan="5" style="text-align:center; color:#6e7681;">No trades yet</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function fetchState() {
+  try {
+    const r = await fetch('/api/state');
+    const s = await r.json();
+    // Balance
+    const bal = document.getElementById('balance');
+    bal.textContent = '$' + (s.balance || 0).toLocaleString(undefined, {minimumFractionDigits:2});
+    bal.className = 'balance' + (s.balance < 300 ? ' loss' : '');
+    // Equity
+    document.getElementById('equity').textContent = '$' + (s.equity || 0).toLocaleString(undefined, {minimumFractionDigits:2});
+    // Daily P/L
+    const dp = s.daily_pnl || 0;
+    const dpEl = document.getElementById('dailyPnl');
+    dpEl.textContent = (dp >= 0 ? '+' : '') + '$' + dp.toFixed(2);
+    dpEl.className = 'value ' + (dp >= 0 ? 'profit' : 'loss-text');
+    // Open positions
+    document.getElementById('openPos').textContent = (s.positions || []).length;
+    document.getElementById('consLoss').textContent = s.consec_losses || 0;
+    document.getElementById('cycle').textContent = '#' + (s.cycle || 0);
+    // Risk tier
+    const bal2 = s.balance || 300;
+    let tier = bal2 < 250 ? '0.5%' : bal2 < 500 ? '1.5%' : bal2 < 1000 ? '2.5%' : '3.0%';
+    document.getElementById('riskTier').textContent = tier;
+    // Status
+    const badge = document.getElementById('statusBadge');
+    if (s.paused) { badge.textContent = 'PAUSED'; badge.className = 'status-badge status-paused'; }
+    else if (s.status === 'halted') { badge.textContent = 'HALTED'; badge.className = 'status-badge status-halted'; }
+    else if (s.status === 'running') { badge.textContent = 'LIVE'; badge.className = 'status-badge status-running'; }
+    else { badge.textContent = 'STARTING'; badge.className = 'status-badge status-starting'; }
+    // Pause button
+    const btn = document.getElementById('pauseBtn');
+    btn.textContent = s.paused ? '▶ Resume' : '⏸ Pause';
+    btn.className = 'btn ' + (s.paused ? 'btn-resume' : 'btn-pause');
+    // Positions table
+    let posHtml = '';
+    (s.positions || []).forEach(p => {
+      posHtml += `<tr>
+        <td>${p.direction}</td>
+        <td>${p.entry}</td>
+        <td>${p.sl}</td>
+        <td>${p.tp}</td>
+        <td>${p.lot}</td>
+        <td>${p.be ? '✅' : '—'}</td>
+      </tr>`;
+    });
+    document.getElementById('positionsTable').innerHTML = posHtml || '<tr><td colspan="6" style="text-align:center;color:#6e7681;">No open positions</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+async function fetchTrades() {
+  try {
+    const r = await fetch('/api/trades');
+    const trades = await r.json();
+    let html = '';
+    trades.forEach(t => {
+      const pnl = t.pnl || 0;
+      html += `<tr>
+        <td>${(t.close_time || '').substr(11,8)}</td>
+        <td>${t.direction || t.d}</td>
+        <td>${t.entry || t.e}</td>
+        <td style="color:${pnl>=0?'#3fb950':'#f85149'}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</td>
+        <td>${t.reason}</td>
+      </tr>`;
+    });
+    document.getElementById('tradesTable').innerHTML = html || '<tr><td colspan="5" style="text-align:center;color:#6e7681;">No trades in last 24 hours</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+async function togglePause() {
+  await fetch('/api/pause', { method: 'POST' });
+  fetchState();
+}
+
+fetchState(); fetchTrades();
+setInterval(fetchState, 30000);
+setInterval(fetchTrades, 60000);
+</script>
+</body>
+</html>

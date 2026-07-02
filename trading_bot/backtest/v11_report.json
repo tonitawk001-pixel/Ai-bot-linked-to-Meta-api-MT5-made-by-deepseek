@@ -1,0 +1,16 @@
+{
+  "summary": {
+    "total_trades": 100,
+    "wins": 100,
+    "losses": 0,
+    "win_rate": 100.0,
+    "profit_factor": Infinity,
+    "total_pnl": 140.38,
+    "return_pct": 46.79,
+    "max_dd_pct": 0.0,
+    "avg_trades_day": 7.1,
+    "final_balance": 440.38,
+    "longest_win": 100,
+    "longest_loss": 0
+  }
+}

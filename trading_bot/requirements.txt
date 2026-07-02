@@ -1,0 +1,16 @@
+# AI Trading Bot - Python Dependencies
+# Data + Analysis Stage (no live trading)
+
+# MetaTrader 5 connector
+MetaTrader5>=5.0.45
+
+# Data manipulation
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# (Optional) For AI integration in future phases
+# openai>=1.0.0
+# requests>=2.31.0

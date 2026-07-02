@@ -1,0 +1,305 @@
+{
+  "config": {
+    "lot": 0.1,
+    "score_range": "70-89",
+    "max_day": 50,
+    "sl_atr": 3.0,
+    "tp_atr": 2.5,
+    "ny_blocked": true,
+    "london_buy_only": true
+  },
+  "summary": {
+    "total_trades": 50,
+    "wins": 32,
+    "losses": 18,
+    "breakeven": 0,
+    "win_rate": 64.0,
+    "profit_factor": 1.86,
+    "expectancy": 0.26,
+    "total_pnl": 12.75,
+    "final_balance": 10012.75,
+    "return_pct": 0.13,
+    "max_dd_pct": 0.08,
+    "max_dd_usd": 8.05,
+    "avg_trades_day": 7.1,
+    "avg_win": 0.86,
+    "avg_loss": 0.82,
+    "win_loss_ratio": 1.05,
+    "longest_win": 10,
+    "longest_loss": 5,
+    "signals": 628,
+    "blocked": 578,
+    "conv_pct": 8.0
+  },
+  "sessions": {
+    "overlap": {
+      "trades": 17,
+      "wins": 10,
+      "win_rate": 58.8,
+      "total_pnl": 4.59
+    },
+    "transition": {
+      "trades": 7,
+      "wins": 7,
+      "win_rate": 100.0,
+      "total_pnl": 3.71
+    },
+    "asian": {
+      "trades": 26,
+      "wins": 15,
+      "win_rate": 57.7,
+      "total_pnl": 4.45
+    }
+  },
+  "news_impact": {
+    "low": {
+      "trades": 50,
+      "wins": 32,
+      "win_rate": 64.0,
+      "total_pnl": 12.75
+    }
+  },
+  "regimes": {
+    "bullish_trend": {
+      "trades": 50,
+      "wins": 32,
+      "win_rate": 64.0,
+      "total_pnl": 12.75
+    }
+  },
+  "score_quality": {
+    "70-79": {
+      "signals": 12,
+      "trades": 1,
+      "wins": 1,
+      "wr": 100.0,
+      "pnl": 0.97
+    },
+    "80-89": {
+      "signals": 616,
+      "trades": 49,
+      "wins": 31,
+      "wr": 63.3,
+      "pnl": 11.78
+    }
+  },
+  "hourly": {
+    "00:00": {
+      "signals": 43,
+      "trades": 7,
+      "wins": 6,
+      "wr": 85.7,
+      "pnl": 2.32
+    },
+    "01:00": {
+      "signals": 24,
+      "trades": 5,
+      "wins": 4,
+      "wr": 80.0,
+      "pnl": 2.87
+    },
+    "02:00": {
+      "signals": 35,
+      "trades": 5,
+      "wins": 3,
+      "wr": 60.0,
+      "pnl": 1.45
+    },
+    "03:00": {
+      "signals": 42,
+      "trades": 3,
+      "wins": 0,
+      "wr": 0.0,
+      "pnl": -1.3
+    },
+    "13:00": {
+      "signals": 36,
+      "trades": 6,
+      "wins": 4,
+      "wr": 66.7,
+      "pnl": 1.45
+    },
+    "14:00": {
+      "signals": 36,
+      "trades": 5,
+      "wins": 5,
+      "wr": 100.0,
+      "pnl": 10.22
+    },
+    "15:00": {
+      "signals": 25,
+      "trades": 1,
+      "wins": 1,
+      "wr": 100.0,
+      "pnl": 0.97
+    },
+    "16:00": {
+      "signals": 30,
+      "trades": 5,
+      "wins": 0,
+      "wr": 0.0,
+      "pnl": -8.05
+    },
+    "22:00": {
+      "signals": 54,
+      "trades": 7,
+      "wins": 7,
+      "wr": 100.0,
+      "pnl": 3.71
+    },
+    "23:00": {
+      "signals": 36,
+      "trades": 6,
+      "wins": 2,
+      "wr": 33.3,
+      "pnl": -0.89
+    }
+  },
+  "blocked": {
+    "total": 578,
+    "reasons": {
+      "max_positions_3/3": 6,
+      "max_daily_trades_50": 572
+    }
+  },
+  "daily": {
+    "2026-01-01": {
+      "trades": 30,
+      "pnl": 7.41
+    },
+    "2026-01-02": {
+      "trades": 20,
+      "pnl": 5.34
+    },
+    "2026-01-03": {
+      "trades": 0,
+      "pnl": 0
+    },
+    "2026-01-04": {
+      "trades": 0,
+      "pnl": 0
+    },
+    "2026-01-05": {
+      "trades": 0,
+      "pnl": 0
+    },
+    "2026-01-06": {
+      "trades": 0,
+      "pnl": 0
+    },
+    "2026-01-07": {
+      "trades": 0,
+      "pnl": 0
+    }
+  },
+  "worst_5": [
+    {
+      "time": "2026-01-01 16:55:00+00:00",
+      "dir": "SELL",
+      "entry": 2311.24,
+      "pnl": -3.3,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    },
+    {
+      "time": "2026-01-01 16:25:00+00:00",
+      "dir": "SELL",
+      "entry": 2289.43,
+      "pnl": -1.74,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    },
+    {
+      "time": "2026-01-01 16:35:00+00:00",
+      "dir": "SELL",
+      "entry": 2294.63,
+      "pnl": -1.66,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    },
+    {
+      "time": "2026-01-01 13:20:00+00:00",
+      "dir": "SELL",
+      "entry": 2405.93,
+      "pnl": -1.43,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 80
+    },
+    {
+      "time": "2026-01-01 13:15:00+00:00",
+      "dir": "SELL",
+      "entry": 2407.13,
+      "pnl": -1.3,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    }
+  ],
+  "best_5": [
+    {
+      "time": "2026-01-01 14:55:00+00:00",
+      "dir": "SELL",
+      "entry": 2353.23,
+      "pnl": 3.83,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "TP",
+      "score": 80
+    },
+    {
+      "time": "2026-01-01 14:20:00+00:00",
+      "dir": "SELL",
+      "entry": 2385.92,
+      "pnl": 2.21,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    },
+    {
+      "time": "2026-01-01 13:40:00+00:00",
+      "dir": "SELL",
+      "entry": 2420.22,
+      "pnl": 1.85,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    },
+    {
+      "time": "2026-01-01 14:30:00+00:00",
+      "dir": "SELL",
+      "entry": 2384.06,
+      "pnl": 1.81,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 85
+    },
+    {
+      "time": "2026-01-01 14:25:00+00:00",
+      "dir": "SELL",
+      "entry": 2389.27,
+      "pnl": 1.37,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit": "MAX_HOLD",
+      "score": 80
+    }
+  ],
+  "equity": {
+    "start": 10000.0,
+    "peak": 10014.4,
+    "trough": 10004.59,
+    "final": 10012.75
+  }
+}

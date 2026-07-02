@@ -1,0 +1,3 @@
+2026-06-16 18:49:18 | CRITICAL | Failed to connect to MT5.
+2026-06-18 18:20:51 | CRITICAL | Failed to connect to MT5. Is MT5 open?
+2026-07-02 16:13:03 | CRITICAL | Failed to fetch MT5 data. Aborting.

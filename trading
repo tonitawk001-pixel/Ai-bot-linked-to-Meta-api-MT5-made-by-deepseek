@@ -1,0 +1,428 @@
+"""
+AI Trading Bot — Main Entry Point (Hardened for VPS 24/7)
+
+Full pipeline: DATA → HEALTH CHECK → INDICATORS → VOLUME → RULE → AI → NEWS → RISK → EXECUTION
+
+Safety features:
+- MT5 Health Monitor (connection check every cycle)
+- Global Watchdog (heartbeat, auto-recovery)
+- Safe Execution Gate (pre-trade validation)
+- Degraded mode fallback (AI/News failure never crashes)
+- Crash-proof outer loop (never stops unless killed)
+"""
+
+import sys
+import json
+import time
+import os
+import traceback
+from datetime import datetime, timedelta
+import pandas as pd
+from trading_bot.config import Config
+from trading_bot.utils.logger import logger
+from trading_bot.mt5.connection import MT5Connection
+from trading_bot.mt5.data_feed import get_candles
+from trading_bot.indicators.technical_indicators import compute_all_indicators
+from trading_bot.indicators.volume_filter import analyze_volume
+from trading_bot.strategy.rule_engine import RuleEngine
+from trading_bot.ai.deepseek_client import DeepSeekClient
+from trading_bot.risk.risk_manager import RiskManager
+from trading_bot.execution.mt5_executor import execute_trade
+from trading_bot.news.news_aggregator import NewsAggregator
+from trading_bot.mt5.health_monitor import MT5HealthMonitor
+from trading_bot.utils.watchdog import get_watchdog
+
+
+# ============================================================
+# MODULE STATUS TRACKING (for degraded mode)
+# ============================================================
+MODULE_STATUS = {
+    "mt5": True,
+    "ai": True,
+    "news": True,
+    "risk": True,
+}
+
+
+def safe_execution_gate(mt5_health: MT5HealthMonitor, risk_eval: dict, ohlcv) -> tuple:
+    """
+    Safe Execution Gate — FINAL validation before any trade.
+
+    Checks:
+    1. MT5 connection valid
+    2. Account balance accessible
+    3. Risk engine approval still valid
+    4. Spread within allowed range
+
+    Returns:
+        (approved: bool, reason: str)
+    """
+    # Check 1: MT5 health
+    if mt5_health and not mt5_health.is_healthy:
+        return False, "MT5 not healthy"
+
+    # Check 2: Account info accessible
+    try:
+        import MetaTrader5 as mt5
+        acct = mt5.account_info()
+        if acct is None:
+            return False, "Account info unavailable"
+    except Exception as e:
+        return False, f"Account check failed: {e}"
+
+    # Check 3: Risk engine approval
+    if not risk_eval.get("approved", False):
+        return False, f"Risk engine not approved: {risk_eval.get('reason', 'unknown')}"
+
+    # Check 4: Spread within range
+    if ohlcv is not None and "spread" in ohlcv.columns:
+        spreads = ohlcv["spread"].iloc[-5:]
+        if len(spreads) > 0:
+            current_spread = ohlcv["spread"].iloc[-1]
+            avg_spread = spreads.mean()
+            if current_spread > avg_spread * Config.MAX_SPREAD_MULTIPLIER:
+                return False, f"Spread {current_spread} > {avg_spread * Config.MAX_SPREAD_MULTIPLIER:.0f}"
+
+    return True, "All checks passed"
+
+
+def get_heartbeat_status(mt5_health, risk_manager, news_agg, cycle_count, last_trade_time):
+    """Generate a heartbeat status string."""
+    mt5_status = mt5_health.status if mt5_health else {"connected": False}
+    accts = risk_manager.all_accounts() if risk_manager else {}
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "cycle": cycle_count,
+        "mt5_connected": mt5_status.get("connected", False),
+        "mt5_paused": mt5_status.get("paused", False),
+        "module_status": dict(MODULE_STATUS),
+        "active_accounts": list(accts.keys()),
+        "last_trade": str(last_trade_time) if last_trade_time else None,
+        "mode": "SIMULATION" if Config.SIMULATION_MODE else "LIVE",
+        "execution": "ENABLED" if Config.EXECUTION_ENABLED else "DISABLED",
+    }
+
+
+def build_ai_payload(symbol, timeframe, ohlcv, indicators, decision, volume_info=None, news_context=None, account_info=None):
+    close = ohlcv["close"].tolist()
+    latest_rsi = indicators["rsi"].iloc[-1] if len(indicators["rsi"]) > 0 else None
+    macd_df = indicators["macd"]
+    latest_macd = macd_df["macd"].iloc[-1] if len(macd_df) > 0 else None
+    latest_signal = macd_df["signal"].iloc[-1] if len(macd_df) > 0 else None
+    macd_condition = "neutral"
+    if latest_macd is not None and latest_signal is not None:
+        if latest_macd > latest_signal: macd_condition = "bullish_cross"
+        elif latest_macd < latest_signal: macd_condition = "bearish_cross"
+    ema_condition = decision.get("ema_condition", "unknown")
+    price_data = {"close": close[-20:], "high": ohlcv["high"].tolist()[-20:], "low": ohlcv["low"].tolist()[-20:],
+                  "latest_close": round(float(close[-1]), 5) if close else 0}
+    payload = {"symbol": symbol, "timeframe": timeframe, "price_data": price_data,
+        "indicators": {"rsi": round(float(latest_rsi), 2) if latest_rsi is not None and not pd.isna(latest_rsi) else None,
+            "macd": macd_condition, "ema_trend": ema_condition,
+            "atr": round(float(indicators["atr"].iloc[-1]), 5) if len(indicators["atr"]) > 0 else None},
+        "rule_engine": {"trend": decision.get("trend", "neutral"), "volatility": decision.get("volatility", "medium"),
+            "setup_valid": decision.get("setup_valid", False), "setup_strength": decision.get("setup_strength", 0),
+            "rsi_condition": decision.get("rsi_condition", "neutral")},
+        "market_context": {"spread": round(float(ohlcv["spread"].iloc[-1]), 1) if "spread" in ohlcv.columns else 0,
+            "candles_analyzed": len(ohlcv)}}
+    if volume_info:
+        payload["volume"] = {"ratio": volume_info.get("volume_ratio", 1.0), "is_spike": volume_info.get("is_spike", False),
+                             "is_low": volume_info.get("is_low", False)}
+    if news_context:
+        payload["news_context"] = news_context
+    if account_info:
+        payload["account"] = {"balance": account_info.get("balance", 0), "equity": account_info.get("equity", 0),
+                              "current_drawdown_pct": account_info.get("drawdown_pct", 0), "risk_per_trade": 0.02}
+    return payload
+
+
+def compute_lot_size_from_risk(balance, atr):
+    if atr is None or atr <= 0: return Config.DEFAULT_LOT_SIZE
+    risk_amt = balance * 0.02
+    sl_dist = atr * 1.5
+    lot = risk_amt / (sl_dist * 100000) if sl_dist > 0 else Config.DEFAULT_LOT_SIZE
+    return max(Config.MIN_LOT_SIZE, min(lot, Config.MAX_LOT_SIZE))
+
+
+def determine_trade_action(rule_dec, ai_an):
+    t = rule_dec.get("trend", "neutral")
+    s = ai_an.get("sentiment", "neutral")
+    if t == "bullish" and s != "bearish": return "BUY"
+    if t == "bearish" and s != "bullish": return "SELL"
+    return "NONE"
+
+
+def compute_sl_tp(dec, action, ohlcv):
+    cp = float(ohlcv["close"].iloc[-1])
+    a = dec.get("atr_value")
+    if a is None: return 0.0, 0.0
+    sd, td = a * 1.5, a * 3.0
+    if action == "BUY": return round(cp - sd, 5), round(cp + td, 5)
+    if action == "SELL": return round(cp + sd, 5), round(cp - td, 5)
+    return 0.0, 0.0
+
+
+def analyze_and_execute(symbol, rule_engine, deepseek, risk_manager, news_agg,
+                         mt5_health, account_id="default", balance=10000.0,
+                         timeframes=None, candle_count=100):
+    if timeframes is None:
+        timeframes = Config.DEFAULT_TIMEFRAMES
+    logger.info(f"\n{'='*60}\n{symbol} | Account: {account_id} | Balance: ${balance:.2f}\n{'='*60}")
+    results = {}
+    for tf in timeframes:
+        logger.info(f"  TF: {tf}")
+        try:
+            df = get_candles(symbol=symbol, timeframe=tf, count=candle_count)
+        except Exception as e:
+            logger.error(f"Fetch failed: {e}")
+            results[tf] = {"error": str(e)}; continue
+        if df is None or df.empty:
+            results[tf] = {"error": "No data"}; continue
+        df.attrs["symbol"] = symbol; df.attrs["timeframe"] = tf
+
+        # Signal successful data receipt
+        if mt5_health: mt5_health.report_data_received()
+
+        # Indicators + Rule Engine
+        try:
+            indicators = compute_all_indicators(df)
+            decision = rule_engine.analyze(ohlcv=df, indicators=indicators)
+        except Exception as e:
+            logger.error(f"Analysis error: {e}")
+            results[tf] = {"error": str(e)}; continue
+
+        # Volume filter
+        volume_info = analyze_volume(df)
+
+        # News (degraded: if fails, continue without)
+        news_context = None; news_overlay = None
+        if MODULE_STATUS["news"] and news_agg:
+            try:
+                news_context = news_agg.get_news_context()
+                news_overlay = news_agg.get_risk_overlay()
+            except Exception as e:
+                logger.warning(f"News module failed (degraded mode): {e}")
+                MODULE_STATUS["news"] = False
+
+        # AI (degraded: if unavailable, use fallback)
+        acct_summary = risk_manager.get_account_summary(account_id)
+        ai_payload = build_ai_payload(symbol, tf, df, indicators, decision, volume_info=volume_info,
+                                       news_context=news_context, account_info=acct_summary)
+        ai_analysis = deepseek.analyze_market(ai_payload)
+        if ai_analysis.get("ai_unavailable"):
+            MODULE_STATUS["ai"] = False
+
+        # Risk engine
+        risk_eval = risk_manager.validate(rule_decision=decision, ai_analysis=ai_analysis, ohlcv=df,
+                                           news_overlay=news_overlay, account_id=account_id, account_balance=balance)
+
+        action = determine_trade_action(decision, ai_analysis)
+        lot = compute_lot_size_from_risk(balance, decision.get("atr_value"))
+        sl, tp = compute_sl_tp(decision, action, df) if action != "NONE" else (0.0, 0.0)
+        max_lot = risk_eval.get("max_lot_size", lot)
+        final_lot = round(min(lot, max_lot)) if max_lot > 0 else lot
+        final_lot = max(Config.MIN_LOT_SIZE, min(final_lot, Config.MAX_LOT_SIZE))
+
+        final_decision = "WAIT"; exec_results = []
+        if risk_eval["approved"] and decision.get("setup_valid"):
+            final_decision = "VALID_SETUP"
+            if Config.EXECUTION_ENABLED and tf == Config.DEFAULT_TIMEFRAME_EXEC and action != "NONE":
+                # Safe Execution Gate
+                gate_ok, gate_reason = safe_execution_gate(mt5_health, risk_eval, df)
+                if gate_ok:
+                    logger.info(f"EXECUTING {action} {final_lot} {symbol}")
+                    try:
+                        exec_results = execute_trade(action=action, symbol=symbol, lot_size=final_lot,
+                            sl=sl, tp=tp, ohlcv=df, risk_evaluation=risk_eval)
+                    except Exception as e:
+                        logger.error(f"Execution error: {e}")
+                        exec_results = [{"account": account_id, "success": False, "reason": str(e)}]
+                else:
+                    logger.warning(f"Execution gate BLOCKED: {gate_reason}")
+                    final_decision = "BLOCK_TRADE"
+        elif not risk_eval["approved"]:
+            final_decision = "BLOCK_TRADE"
+
+        results[tf] = {"market_data": {"symbol": symbol, "timeframe": tf, "candles": len(df),
+            "latest_price": {"close": float(df["close"].iloc[-1])}},
+            "indicators": {"rsi": decision["rsi_value"], "trend": decision["trend"]},
+            "volume": volume_info, "rule_engine": {"setup_valid": decision["setup_valid"]},
+            "ai_analysis": {"sentiment": ai_analysis.get("sentiment"), "confidence": ai_analysis.get("confidence")},
+            "risk_evaluation": {"approved": risk_eval.get("approved"), "risk_score": risk_eval.get("risk_score"),
+                "max_lot_size": risk_eval.get("max_lot_size")},
+            "trade_decision": {"action": action, "final_lot_size": final_lot, "sl": sl, "tp": tp},
+            "execution_results": exec_results, "final_decision": final_decision}
+        logger.info(f"  {symbol} {tf}: setup={decision['setup_valid']} lot={final_lot} "
+                     f"risk={'OK' if risk_eval['approved'] else 'BLOCK'} final={final_decision}")
+    return results
+
+
+def run_live_analysis(mt5_health, risk_manager, rule_engine, deepseek, news_agg):
+    """Run a single analysis cycle. Returns True on success."""
+    logger.info("="*60 + "\nANALYSIS CYCLE\n" + "="*60)
+    # MT5 health check
+    if not mt5_health.check_connection():
+        logger.critical("MT5 NOT HEALTHY — skipping cycle")
+        MODULE_STATUS["mt5"] = False
+        return False
+    MODULE_STATUS["mt5"] = True
+    # Get balance from MT5
+    try:
+        import MetaTrader5 as mt5
+        acct_info = mt5.account_info()
+        balance = acct_info.balance if acct_info else 10000.0
+    except:
+        balance = 10000.0
+    logger.info(f"Account balance: ${balance:.2f}")
+    # Analyze each symbol
+    for symbol in Config.SYMBOLS:
+        symbol = symbol.strip()
+        if not symbol: continue
+        try:
+            analyze_and_execute(symbol, rule_engine, deepseek, risk_manager, news_agg,
+                                 mt5_health, account_id=symbol, account_balance=balance)
+        except Exception as e:
+            logger.error(f"Symbol {symbol} failed: {e}")
+    logger.info(f"Cycle accounts: {json.dumps(risk_manager.all_accounts(), indent=2)}")
+    return True
+
+
+def run_continuous_loop():
+    """Crash-proof continuous 24/7 loop."""
+    logger.info("="*60)
+    logger.info("AI Trading Bot — CONTINUOUS 24/7 MODE (HARDENED)")
+    logger.info(f"Interval: {getattr(Config, 'ANALYSIS_INTERVAL_MINUTES', 60)} min")
+    logger.info(f"Execution: {Config.EXECUTION_ENABLED}")
+    logger.info("="*60)
+
+    interval = max(1, getattr(Config, 'ANALYSIS_INTERVAL_MINUTES', 60))
+    cycle_count = 0
+    last_trade_time = None
+
+    # Initialize watchdog
+    watchdog = get_watchdog()
+    watchdog.start()
+
+    # Initialize modules with retry
+    while True:
+        cycle_count += 1
+        logger.info(f"\n{'='*60}\nCYCLE #{cycle_count} — {datetime.now().isoformat()}\n{'='*60}")
+
+        try:
+            # === MODULE INITIALIZATION (with retry) ===
+            if cycle_count == 1 or not MODULE_STATUS.get("mt5", True):
+                # MT5 connection
+                mt5_conn = MT5Connection()
+                if not mt5_conn.initialize():
+                    logger.critical("MT5 init failed — will retry next cycle")
+                    time.sleep(10)
+                    continue
+                mt5_health = MT5HealthMonitor()
+                mt5_health.check_connection()
+
+                # DeepSeek
+                deepseek = DeepSeekClient()
+                if not deepseek.initialize():
+                    logger.warning("DeepSeek unavailable — degraded mode")
+                    MODULE_STATUS["ai"] = False
+
+                # News
+                news_agg = NewsAggregator(update_interval_minutes=15)
+                try:
+                    news_agg.update(force=True)
+                except:
+                    logger.warning("News init failed — degraded mode")
+                    MODULE_STATUS["news"] = False
+
+                # Risk + Rules
+                balance = 10000.0
+                try:
+                    import MetaTrader5 as mt5
+                    ai = mt5.account_info()
+                    if ai: balance = ai.balance
+                except:
+                    pass
+                risk_manager = RiskManager(default_balance=balance)
+                rule_engine = RuleEngine()
+                logger.info("All modules initialized")
+
+            # === HEARTBEAT ===
+            watchdog.heartbeat()
+
+            # === RUN ANALYSIS ===
+            success = run_live_analysis(mt5_health, risk_manager, rule_engine, deepseek, news_agg)
+
+            # === HEARTBEAT STATUS ===
+            hb = get_heartbeat_status(mt5_health, risk_manager, news_agg, cycle_count, last_trade_time)
+            logger.info(f"HEARTBEAT: {json.dumps(hb)}")
+
+            next_run = datetime.now() + timedelta(minutes=interval)
+            logger.info(f"Cycle #{cycle_count} complete. Next: {next_run.isoformat()}")
+
+        except KeyboardInterrupt:
+            logger.info("Stopped by user (Ctrl+C).")
+            try: watchdog.stop()
+            except: pass
+            break
+
+        except Exception as e:
+            logger.critical(f"UNHANDLED ERROR in cycle #{cycle_count}: {e}")
+            logger.critical(traceback.format_exc())
+            logger.info("Restarting cycle in 10s...")
+            time.sleep(10)
+            continue
+
+        # Sleep with heartbeat
+        for remaining in range(interval * 60, 0, -60):
+            watchdog.heartbeat()
+            if remaining % 300 == 0:
+                logger.debug(f"  Next cycle in {remaining//60}m")
+            time.sleep(min(60, remaining))
+
+
+def run_simulation_mode():
+    from trading_bot.backtest.simulation_engine import run_simulation
+    logger.info("="*60 + "\nSIMULATION MODE\n" + "="*60)
+    mt5_conn = MT5Connection()
+    if not mt5_conn.initialize():
+        logger.critical("MT5 connection failed.")
+        return
+    deepseek = DeepSeekClient(); deepseek.initialize()
+    news_agg = NewsAggregator()
+    try: news_agg.update(force=True)
+    except: pass
+    risk_manager = RiskManager(default_balance=Config.SIMULATION_INITIAL_BALANCE)
+    rule_engine = RuleEngine()
+    for symbol in Config.SYMBOLS:
+        symbol = symbol.strip()
+        if not symbol: continue
+        for tf in [Config.DEFAULT_TIMEFRAME_EXEC]:
+            result = run_simulation(symbol=symbol, timeframe=tf, candle_count=Config.CANDLE_COUNT,
+                                     rule_engine=rule_engine, deepseek=deepseek, risk_manager=risk_manager)
+            if "error" not in result:
+                a = result.get("safety_audit", {})
+                print(f"{symbol}_{tf}: Trades={a.get('total_trades')} WR={a.get('win_rate')}% "
+                      f"PF={a.get('profit_factor')} DD={a.get('max_drawdown')}%")
+    deepseek.shutdown(); mt5_conn.shutdown()
+
+
+if __name__ == "__main__":
+    try:
+        if Config.SIMULATION_MODE:
+            run_simulation_mode()
+        elif Config.CONTINUOUS_MODE:
+            run_continuous_loop()
+        else:
+            # Single-pass mode
+            mt5_health = MT5HealthMonitor()
+            deepseek = DeepSeekClient(); deepseek.initialize()
+            news_agg = NewsAggregator()
+            try: news_agg.update(force=True)
+            except: pass
+            risk_manager = RiskManager(default_balance=10000.0)
+            rule_engine = RuleEngine()
+            run_live_analysis(mt5_health, risk_manager, rule_engine, deepseek, news_agg)
+    except Exception as e:
+        logger.critical(f"FATAL ERROR: {e}")
+        logger.critical(traceback.format_exc())
+        sys.exit(1)

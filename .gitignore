@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+logs/bot_state.json
+logs/paused.flag
+logs/trading_bot.log*
+logs/*.log.*
+logs/v*_trades.json
+trading_bot_deploy.zip

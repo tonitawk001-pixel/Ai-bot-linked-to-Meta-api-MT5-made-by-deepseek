@@ -1,0 +1,1 @@
+"""News intelligence module for macro-economic context."""

@@ -1,0 +1,451 @@
+{
+  "report_metadata": {
+    "title": "V2 AGGRESSIVE Gold Scalping \u2014 7-Day XAUUSD Backtest Report",
+    "generated_at": "2026-06-18 13:52:58.737445",
+    "data_range": "2026-01-01 00:00:00+00:00 to 2026-01-07 23:59:00+00:00",
+    "data_source": "Realistic synthetic XAUUSD (session-volatility model with regime shifts & news events)",
+    "strategy_version": "GoldScalpingStrategy V2 Aggressive",
+    "parameters": {
+      "initial_balance": 10000.0,
+      "lot_size": 0.1,
+      "max_positions": 5,
+      "max_trades_per_day": 200,
+      "min_score_threshold": 35,
+      "atr_sl_multiplier": 2.0,
+      "atr_tp_multiplier": 4.0,
+      "asian_block_rate": 0.1,
+      "consecutive_losses_limit": 8
+    }
+  },
+  "executive_summary": {
+    "total_trades": 200,
+    "winning_trades": 109,
+    "losing_trades": 91,
+    "breakeven_trades": 0,
+    "win_rate_pct": 54.5,
+    "profit_factor": 1.09,
+    "expectancy_per_trade": 0.04,
+    "total_pnl_usd": 7.15,
+    "final_balance": 10007.15,
+    "return_pct": 0.07,
+    "max_drawdown_pct": 0.24,
+    "max_drawdown_usd": 24.35,
+    "avg_trades_per_day": 28.6,
+    "avg_win_usd": 0.79,
+    "avg_loss_usd": 0.87,
+    "win_loss_ratio": 0.91,
+    "longest_win_streak": 14,
+    "longest_loss_streak": 9,
+    "signals_generated_total": 1602,
+    "signals_converted_to_trades_pct": 12.5,
+    "signals_blocked_total": 1402
+  },
+  "session_performance": {
+    "london": {
+      "trades": 51,
+      "wins": 24,
+      "win_rate": 47.1,
+      "total_pnl": -9.34,
+      "avg_pnl": -0.18,
+      "best_trade": 2.28,
+      "worst_trade": -1.97
+    },
+    "overlap": {
+      "trades": 42,
+      "wins": 23,
+      "win_rate": 54.8,
+      "total_pnl": 6.68,
+      "avg_pnl": 0.16,
+      "best_trade": 4.05,
+      "worst_trade": -3.15
+    },
+    "new_york": {
+      "trades": 56,
+      "wins": 25,
+      "win_rate": 44.6,
+      "total_pnl": -4.11,
+      "avg_pnl": -0.07,
+      "best_trade": 2.84,
+      "worst_trade": -2.51
+    },
+    "transition": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "total_pnl": 4.4,
+      "avg_pnl": 0.37,
+      "best_trade": 1.09,
+      "worst_trade": -0.24
+    },
+    "asian": {
+      "trades": 39,
+      "wins": 26,
+      "win_rate": 66.7,
+      "total_pnl": 9.52,
+      "avg_pnl": 0.24,
+      "best_trade": 1.32,
+      "worst_trade": -1.05
+    }
+  },
+  "news_impact": {
+    "low": {
+      "trades": 200,
+      "wins": 109,
+      "win_rate": 54.5,
+      "total_pnl": 7.15
+    }
+  },
+  "regime_performance": {
+    "bullish_trend": {
+      "trades": 200,
+      "wins": 109,
+      "win_rate": 54.5,
+      "total_pnl": 7.15,
+      "avg_pnl": 0.04
+    }
+  },
+  "score_quality_analysis": {
+    "40-49": {
+      "signals_generated": 127,
+      "trades_executed": 16,
+      "conversion_rate": 12.6,
+      "wins": 7,
+      "win_rate": 43.8,
+      "total_pnl": -8.42
+    },
+    "50-59": {
+      "signals_generated": 13,
+      "trades_executed": 2,
+      "conversion_rate": 15.4,
+      "wins": 1,
+      "win_rate": 50.0,
+      "total_pnl": -1.76
+    },
+    "60-69": {
+      "signals_generated": 199,
+      "trades_executed": 24,
+      "conversion_rate": 12.1,
+      "wins": 16,
+      "win_rate": 66.7,
+      "total_pnl": 8.0
+    },
+    "70-79": {
+      "signals_generated": 14,
+      "trades_executed": 1,
+      "conversion_rate": 7.1,
+      "wins": 0,
+      "win_rate": 0.0,
+      "total_pnl": -0.03
+    },
+    "80-89": {
+      "signals_generated": 923,
+      "trades_executed": 121,
+      "conversion_rate": 13.1,
+      "wins": 69,
+      "win_rate": 57.0,
+      "total_pnl": 10.41
+    },
+    "100-109": {
+      "signals_generated": 326,
+      "trades_executed": 36,
+      "conversion_rate": 11.0,
+      "wins": 16,
+      "win_rate": 44.4,
+      "total_pnl": -1.05
+    }
+  },
+  "hourly_performance": {
+    "00:00": {
+      "signals": 70,
+      "trades": 11,
+      "wins": 7,
+      "win_rate": 63.6,
+      "total_pnl": 3.59
+    },
+    "01:00": {
+      "signals": 56,
+      "trades": 10,
+      "wins": 9,
+      "win_rate": 90.0,
+      "total_pnl": 4.06
+    },
+    "02:00": {
+      "signals": 65,
+      "trades": 7,
+      "wins": 5,
+      "win_rate": 71.4,
+      "total_pnl": 2.3
+    },
+    "08:00": {
+      "signals": 65,
+      "trades": 7,
+      "wins": 5,
+      "win_rate": 71.4,
+      "total_pnl": 1.7
+    },
+    "09:00": {
+      "signals": 70,
+      "trades": 12,
+      "wins": 7,
+      "win_rate": 58.3,
+      "total_pnl": 5.1
+    },
+    "10:00": {
+      "signals": 68,
+      "trades": 11,
+      "wins": 5,
+      "win_rate": 45.5,
+      "total_pnl": -0.69
+    },
+    "11:00": {
+      "signals": 73,
+      "trades": 10,
+      "wins": 4,
+      "win_rate": 40.0,
+      "total_pnl": -5.59
+    },
+    "12:00": {
+      "signals": 56,
+      "trades": 11,
+      "wins": 3,
+      "win_rate": 27.3,
+      "total_pnl": -9.86
+    },
+    "13:00": {
+      "signals": 62,
+      "trades": 10,
+      "wins": 7,
+      "win_rate": 70.0,
+      "total_pnl": 3.39
+    },
+    "14:00": {
+      "signals": 54,
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "total_pnl": 14.75
+    },
+    "15:00": {
+      "signals": 61,
+      "trades": 9,
+      "wins": 4,
+      "win_rate": 44.4,
+      "total_pnl": -2.24
+    },
+    "16:00": {
+      "signals": 80,
+      "trades": 11,
+      "wins": 1,
+      "win_rate": 9.1,
+      "total_pnl": -9.22
+    },
+    "17:00": {
+      "signals": 78,
+      "trades": 10,
+      "wins": 5,
+      "win_rate": 50.0,
+      "total_pnl": -5.3
+    },
+    "18:00": {
+      "signals": 75,
+      "trades": 11,
+      "wins": 8,
+      "win_rate": 72.7,
+      "total_pnl": 5.62
+    },
+    "19:00": {
+      "signals": 68,
+      "trades": 11,
+      "wins": 3,
+      "win_rate": 27.3,
+      "total_pnl": -0.82
+    },
+    "20:00": {
+      "signals": 71,
+      "trades": 12,
+      "wins": 4,
+      "win_rate": 33.3,
+      "total_pnl": -3.6
+    },
+    "21:00": {
+      "signals": 75,
+      "trades": 12,
+      "wins": 5,
+      "win_rate": 41.7,
+      "total_pnl": -0.01
+    },
+    "22:00": {
+      "signals": 82,
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "total_pnl": 4.4
+    },
+    "23:00": {
+      "signals": 66,
+      "trades": 11,
+      "wins": 5,
+      "win_rate": 45.5,
+      "total_pnl": -0.43
+    }
+  },
+  "blocked_signals_analysis": {
+    "total_blocked": 1402,
+    "by_reason": {
+      "asian_reduced": 53,
+      "max_daily_trades_200": 1349
+    },
+    "by_session": {
+      "asian": 525,
+      "london": 281,
+      "overlap": 215,
+      "new_york": 311,
+      "transition": 70
+    },
+    "avg_blocked_score": 81.1
+  },
+  "worst_5_trades": [
+    {
+      "time": "2026-01-01 15:15:00+00:00",
+      "direction": "BUY",
+      "entry": 2313.81,
+      "pnl": -3.15,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit_reason": "SL",
+      "setup_score": 40
+    },
+    {
+      "time": "2026-01-01 14:45:00+00:00",
+      "direction": "BUY",
+      "entry": 2375.56,
+      "pnl": -2.94,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit_reason": "SL",
+      "setup_score": 40
+    },
+    {
+      "time": "2026-01-01 17:00:00+00:00",
+      "direction": "SELL",
+      "entry": 2309.14,
+      "pnl": -2.51,
+      "session": "new_york",
+      "regime": "bullish_trend",
+      "exit_reason": "SL",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 17:45:00+00:00",
+      "direction": "SELL",
+      "entry": 2326.97,
+      "pnl": -2.2,
+      "session": "new_york",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    },
+    {
+      "time": "2026-01-01 18:50:00+00:00",
+      "direction": "SELL",
+      "entry": 2309.24,
+      "pnl": -2.02,
+      "session": "new_york",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    }
+  ],
+  "best_5_trades": [
+    {
+      "time": "2026-01-01 14:50:00+00:00",
+      "direction": "SELL",
+      "entry": 2365.96,
+      "pnl": 4.05,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 100
+    },
+    {
+      "time": "2026-01-01 14:55:00+00:00",
+      "direction": "SELL",
+      "entry": 2353.23,
+      "pnl": 3.4,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 80
+    },
+    {
+      "time": "2026-01-01 18:20:00+00:00",
+      "direction": "SELL",
+      "entry": 2334.7,
+      "pnl": 2.84,
+      "session": "new_york",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 80
+    },
+    {
+      "time": "2026-01-01 14:25:00+00:00",
+      "direction": "SELL",
+      "entry": 2389.27,
+      "pnl": 2.54,
+      "session": "overlap",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 80
+    },
+    {
+      "time": "2026-01-01 09:55:00+00:00",
+      "direction": "SELL",
+      "entry": 2386.72,
+      "pnl": 2.28,
+      "session": "london",
+      "regime": "bullish_trend",
+      "exit_reason": "MAX_HOLD",
+      "setup_score": 85
+    }
+  ],
+  "daily_breakdown": {
+    "2026-01-01": {
+      "trades": 172,
+      "day_pnl": -2.8
+    },
+    "2026-01-02": {
+      "trades": 28,
+      "day_pnl": 9.95
+    },
+    "2026-01-03": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-04": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-05": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-06": {
+      "trades": 0,
+      "day_pnl": 0
+    },
+    "2026-01-07": {
+      "trades": 0,
+      "day_pnl": 0
+    }
+  },
+  "trade_exit_reasons": {
+    "MAX_HOLD": "195",
+    "SL": "5"
+  },
+  "equity_metrics": {
+    "starting_balance": 10000.0,
+    "peak_balance": 10012.72,
+    "trough_balance": 9988.37,
+    "final_balance": 10007.15
+  }
+}

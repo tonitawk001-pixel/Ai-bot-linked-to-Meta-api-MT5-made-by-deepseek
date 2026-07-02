@@ -1,0 +1,270 @@
+"""
+Risk Management Engine — FINAL AUTHORITY.
+
+Capital-aware per-account risk management.
+
+Key rules:
+- Default risk per trade = 2% of account balance (hard rule)
+- Each account tracks its own balance, equity, drawdown independently
+- No shared state between accounts
+- Drawdown > 15% → reduce lot by 50%
+- Drawdown > 25% → pause trading for 24h
+- Risk engine overrides everything
+"""
+
+from trading_bot.utils.logger import logger
+from trading_bot.config import Config
+
+
+class PerAccountRiskState:
+    """Tracks risk state for a single MT5 account independently."""
+
+    def __init__(self, account_id: str, initial_balance: float = 10000.0):
+        self.account_id = account_id
+        self.balance = initial_balance
+        self.initial_balance = initial_balance
+        self.equity = initial_balance
+        self.equity_peak = initial_balance
+        self.equity_low = initial_balance
+        self.daily_loss = 0.0
+        self.daily_trades = 0
+        self.consecutive_losses = 0
+        self.paused_until = None
+        logger.info(f"PerAccountRiskState [{account_id}]: balance={initial_balance}")
+
+    def update_equity(self, equity: float):
+        self.equity = equity
+        if equity > self.equity_peak:
+            self.equity_peak = equity
+        if equity < self.equity_low:
+            self.equity_low = equity
+
+    def record_result(self, pnl: float):
+        self.daily_trades += 1
+        self.daily_loss += pnl
+        self.balance += pnl
+        self.update_equity(self.equity + pnl)
+        if pnl < 0:
+            self.consecutive_losses += 1
+        else:
+            self.consecutive_losses = 0
+
+    @property
+    def max_drawdown_pct(self) -> float:
+        if self.equity_peak == 0:
+            return 0.0
+        return (self.equity_peak - self.equity_low) / self.equity_peak * 100
+
+    @property
+    def current_drawdown_pct(self) -> float:
+        if self.equity_peak == 0:
+            return 0.0
+        return (self.equity_peak - self.equity) / self.equity_peak * 100
+
+    def reset_daily(self):
+        self.daily_loss = 0.0
+        self.daily_trades = 0
+        self.consecutive_losses = 0
+
+
+class RiskManager:
+    """
+    Capital-aware risk manager supporting multiple isolated accounts.
+    Each account gets its own PerAccountRiskState.
+    """
+
+    def __init__(self, default_balance: float = 10000.0):
+        self._accounts: dict[str, PerAccountRiskState] = {}
+        self._default_balance = default_balance
+        logger.info(f"RiskManager initialized (per-account mode).")
+
+    def get_or_create_account(self, account_id: str, initial_balance: float = None) -> PerAccountRiskState:
+        """Get existing account state or create a new one."""
+        if account_id not in self._accounts:
+            bal = initial_balance or self._default_balance
+            self._accounts[account_id] = PerAccountRiskState(account_id, bal)
+        return self._accounts[account_id]
+
+    def validate(self, rule_decision: dict, ai_analysis: dict, ohlcv=None,
+                 news_overlay: dict = None, account_id: str = "default",
+                 account_balance: float = None) -> dict:
+        """
+        Validate a trade for a specific account.
+
+        Returns:
+            dict: {
+                "approved": bool,
+                "risk_score": 0-100,
+                "trade_quality": "high"|"medium"|"blocked",
+                "max_lot_size": float (max allowed based on 2% rule),
+                "adjusted_lot_scale": float (0.0-1.0),
+                "reason": str,
+            }
+        """
+        # Get or create account state
+        acct = self.get_or_create_account(account_id, account_balance)
+
+        hard_blocks = []
+        soft_warnings = []
+
+        # ============ HARD BLOCKS ============
+
+        # 1. 2% risk per trade (hard)
+        atr_val = rule_decision.get("atr_value")
+        latest_close = float(ohlcv["close"].iloc[-1]) if ohlcv is not None else 1.0
+        risk_per_trade_pct = 0.02  # 2% fixed
+        max_risk_amount = acct.balance * risk_per_trade_pct
+
+        # Compute max lot from risk
+        if atr_val and atr_val > 0 and latest_close > 0:
+            sl_distance = atr_val * 1.5
+            max_lot_from_risk = max_risk_amount / (sl_distance * 100000) if sl_distance > 0 else 0.01
+            max_lot_from_risk = round(max_lot_from_risk, 2)
+        else:
+            max_lot_from_risk = Config.DEFAULT_LOT_SIZE
+
+        # 2. Daily loss limit (hard)
+        if acct.balance > 0:
+            ddp = (acct.daily_loss / acct.balance) * 100
+            if ddp <= -Config.MAX_DAILY_LOSS_PERCENT:
+                hard_blocks.append(f"daily_loss_{ddp:.1f}%")
+
+        # 3. Consecutive losses (hard)
+        if acct.consecutive_losses >= Config.MAX_CONSECUTIVE_LOSSES:
+            hard_blocks.append(f"consecutive_losses_{acct.consecutive_losses}")
+
+        # 4. Spread ceiling (hard)
+        if ohlcv is not None and "spread" in ohlcv.columns:
+            spr = ohlcv["spread"].iloc[-20:]
+            if len(spr) > 0:
+                avg_s = spr.mean()
+                cur_s = ohlcv["spread"].iloc[-1]
+                if cur_s > avg_s * Config.MAX_SPREAD_MULTIPLIER:
+                    hard_blocks.append(f"spread_{cur_s:.0f}")
+
+        # 5. Drawdown > 25% pause (hard)
+        if acct.current_drawdown_pct > 25:
+            hard_blocks.append(f"drawdown_{acct.current_drawdown_pct:.0f}%_pause")
+
+        # 6. News blackout (hard)
+        if news_overlay and news_overlay.get("news_block_all_trades"):
+            hard_blocks.append("news_blackout")
+
+        if hard_blocks:
+            return {
+                "approved": False, "risk_score": 100, "trade_quality": "blocked",
+                "max_lot_size": 0.0, "adjusted_lot_scale": 0.0,
+                "blocked_by": hard_blocks, "soft_warnings": [],
+                "reason": f"BLOCKED: {', '.join(hard_blocks)}",
+                "account_balance": round(acct.balance, 2),
+                "risk_amount_pct": 0.0,
+            }
+
+        # ============ SOFT SCORING ============
+        risk_score = 0.0
+
+        if not rule_decision.get("setup_valid", False):
+            risk_score += 25; soft_warnings.append("setup_invalid")
+
+        ai_conf = ai_analysis.get("confidence", 0)
+        if ai_conf < Config.AI_MIN_CONFIDENCE:
+            risk_score += 30 * (1 - ai_conf / max(Config.AI_MIN_CONFIDENCE, 1))
+            soft_warnings.append(f"low_ai_confidence_{ai_conf}")
+        elif ai_conf >= 90:
+            risk_score -= 5; soft_warnings.append("ai_high_confidence_bonus")
+
+        rf = ai_analysis.get("risk_flag", "medium")
+        if rf == "high": risk_score += 20; soft_warnings.append("ai_high_risk_flag")
+        elif rf == "medium": risk_score += 5; soft_warnings.append("ai_medium_risk_flag")
+
+        if ai_analysis.get("conflicts_detected", False):
+            risk_score += 15; soft_warnings.append("ai_conflicts_detected")
+        if ai_analysis.get("ai_unavailable", False):
+            risk_score += 25; soft_warnings.append("ai_unavailable")
+
+        if atr_val and ohlcv is not None and latest_close > 0:
+            ap = (atr_val / latest_close) * 100
+            if ap > Config.MAX_ATR_PERCENT:
+                risk_score += min(20, (ap - Config.MAX_ATR_PERCENT) * 5)
+                soft_warnings.append(f"high_atr_{ap:.2f}%")
+
+        trend = rule_decision.get("trend", "neutral")
+        vol = rule_decision.get("volatility", "medium")
+        if trend == "neutral" and vol == "high":
+            risk_score += 10; soft_warnings.append("neutral_trend_high_volatility")
+        elif trend != "neutral" and vol == "low":
+            risk_score -= 5
+
+        rsi_c = rule_decision.get("rsi_condition", "neutral")
+        if rsi_c in ("overbought", "oversold"):
+            risk_score += 10; soft_warnings.append(f"rsi_{rsi_c}")
+
+        # News overlay
+        lot_scale = 1.0
+        if news_overlay:
+            lot_scale = 1.0 - news_overlay.get("reduce_lot_by_percent", 0.0)
+            ns = news_overlay.get("increase_risk_score_by", 0)
+            if ns:
+                risk_score += ns; soft_warnings.append(f"news_risk_{ns}")
+
+        # Drawdown scaling
+        dd = acct.current_drawdown_pct
+        if dd > 15:
+            lot_scale *= 0.5
+            soft_warnings.append(f"dd_{dd:.0f}%_lot_50pct")
+
+        risk_score = max(0.0, min(100.0, risk_score))
+
+        if risk_score < 40:
+            approved = True; tq = "high"
+        elif risk_score < 70:
+            approved = True; tq = "medium"
+            lot_scale *= 0.65
+        else:
+            approved = False; tq = "blocked"; lot_scale = 0.0
+
+        final_max_lot = round(max_lot_from_risk * lot_scale, 2)
+        final_max_lot = max(Config.MIN_LOT_SIZE, min(final_max_lot, Config.MAX_LOT_SIZE))
+
+        result = {
+            "approved": approved,
+            "risk_score": round(risk_score, 1),
+            "trade_quality": tq,
+            "max_lot_size": final_max_lot,
+            "adjusted_lot_scale": round(lot_scale, 2),
+            "blocked_by": hard_blocks,
+            "soft_warnings": soft_warnings,
+            "reason": f"Score={risk_score:.0f}, quality={tq}, max_lot={final_max_lot}, scale={lot_scale:.2f}",
+            "account_id": account_id,
+            "account_balance": round(acct.balance, 2),
+            "risk_amount_pct": round(risk_per_trade_pct * 100, 1),
+        }
+
+        if approved:
+            logger.info(f"RiskManager [{account_id}]: APPROVED (score={risk_score:.0f}, max_lot={final_max_lot})")
+        else:
+            logger.warning(f"RiskManager [{account_id}]: BLOCKED (score={risk_score:.0f})")
+
+        return result
+
+    def record_result(self, profit_loss: float, account_id: str = "default"):
+        """Record trade result for a specific account."""
+        acct = self.get_or_create_account(account_id)
+        acct.record_result(profit_loss)
+
+    def get_account_summary(self, account_id: str = "default") -> dict:
+        """Get summary for a specific account."""
+        acct = self.get_or_create_account(account_id)
+        return {
+            "account_id": account_id,
+            "balance": round(acct.balance, 2),
+            "equity": round(acct.equity, 2),
+            "drawdown_pct": round(acct.current_drawdown_pct, 2),
+            "max_drawdown_pct": round(acct.max_drawdown_pct, 2),
+            "consecutive_losses": acct.consecutive_losses,
+            "daily_pnl": round(acct.daily_loss, 2),
+        }
+
+    def all_accounts(self) -> dict:
+        """Get summary for all tracked accounts."""
+        return {aid: self.get_account_summary(aid) for aid in self._accounts}
