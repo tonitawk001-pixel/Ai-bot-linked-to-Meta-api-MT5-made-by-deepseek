@@ -20,7 +20,7 @@ SENDER_COMP_ID = "demo.icmarkets.10081328"
 TARGET_COMP_ID = "cServer"
 TARGET_SUB_ID = "TRADE"
 USERNAME = "10081328"
-PASSWORD = "Trading1234"
+PASSWORD = "12345678"
 HEARTBEAT_SEC = 30
 
 _seq = 1
@@ -38,28 +38,42 @@ def _fix_checksum(msg):
     return f"{total % 256:03d}"
 
 
-def _build_msg(body):
-    """Build complete FIX message. MsgType comes from body, not hardcoded!"""
+SOH = "\x01"
+
+def _build_msg(body_with_pipes):
+    """Build a correct FIX 4.4 message.
+
+    The body is passed with pipe separators (|) for readability.  The function
+    converts to SOH *before* computing the BodyLength and Checksum so the
+    server receives exactly what it expects.
+    """
     seq = _next_seq()
     sending_time = datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.000")
 
-    # Extract BodyLength (tag 9) and MsgType (tag 35) from body
-    body_len = len(body)
-    # Find MsgType from body (e.g., "35=A|" -> "A")
-    msg_type = "0"  # Default Heartbeat
-    for part in body.split("|"):
+    # Convert body to SOH for accurate length
+    body_soh = body_with_pipes.replace("|", SOH)
+    body_len = len(body_soh)
+
+    # Extract MsgType from body (e.g., "35=A|" -> "A")
+    msg_type = "0"
+    for part in body_with_pipes.split("|"):
         if part.startswith("35="):
             msg_type = part[3:]
             break
 
-    # Build raw string with | as placeholder, then replace with SOH byte
-    raw = (
-        f"8=FIX.4.4|9={body_len}|35={msg_type}|49={SENDER_COMP_ID}|"
-        f"56={TARGET_COMP_ID}|34={seq}|52={sending_time}|"
-        f"{body}"
+    # Build everything with SOH separators, then compute checksum
+    msg = (
+        f"8=FIX.4.4{SOH}"
+        f"9={body_len}{SOH}"
+        f"35={msg_type}{SOH}"
+        f"49={SENDER_COMP_ID}{SOH}"
+        f"56={TARGET_COMP_ID}{SOH}"
+        f"34={seq}{SOH}"
+        f"52={sending_time}{SOH}"
+        f"{body_soh}"
     )
-    ck = _fix_checksum(raw)
-    return (raw + f"10={ck}|").replace("|", "\x01").encode("ascii")
+    ck = _fix_checksum(msg)
+    return (msg + f"10={ck}{SOH}").encode("ascii")
 
 
 def _parse_msg(data):
@@ -103,12 +117,11 @@ class CTraderFIX:
     def _logon(self, sock, sub_id):
         """Send FIX Logon (35=A) with required authentication tags."""
         body = (
-            "35=A|"
             f"98=0|"
             f"108={HEARTBEAT_SEC}|"
             f"553={USERNAME}|"
             f"554={PASSWORD}|"
-            f"57={sub_id}|"  # TargetSubID = QUOTE or TRADE
+            f"57={sub_id}|"
         )
         sock.sendall(_build_msg(body))
         resp = self._recv(sock, timeout=10)
@@ -137,7 +150,7 @@ class CTraderFIX:
     def get_account_info(self):
         if not self.logged_on:
             return None
-        body = f"35=UAF|"  # UserAccountInfo request
+        body = f"98=0|108={HEARTBEAT_SEC}|"
         self.trade_sock.sendall(_build_msg(body))
         resp = self._recv(self.trade_sock, timeout=5)
         parsed = _parse_msg(resp)
@@ -165,10 +178,10 @@ class CTraderFIX:
             f"55=XAU/USD|"
             f"54={side}|"
             f"38={qty}|"
-            f"40=1|"         # OrdType: Market
-            f"59=1|"         # TimeInForce: GTC
-            f"99={sl}|"      # StopPx
-            f"44={tp}|"      # Price (TakeProfit)
+            f"40=1|"
+            f"59=1|"
+            f"99={sl}|"
+            f"44={tp}|"
         )
         self.trade_sock.sendall(_build_msg(body))
         resp = self._recv(self.trade_sock, timeout=10)
@@ -180,7 +193,7 @@ class CTraderFIX:
         return {"success": False, "reason": parsed.get("58", f"Status {ord_status}")}
 
     def disconnect(self):
-        logout = "35=5|"
+        logout = ""
         for s in [self.quote_sock, self.trade_sock]:
             if s:
                 try:
