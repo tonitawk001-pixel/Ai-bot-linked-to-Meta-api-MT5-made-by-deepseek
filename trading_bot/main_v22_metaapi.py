@@ -614,7 +614,7 @@ def check_connection(conn: MetaApiConnection) -> bool:
 
 def v22_cycle(conn: MetaApiConnection):
     """v4.3: Now sends REAL MetaApi orders with execute_trade() for strategy trades."""
-    global positions, last_entry, daily_pnl, last_processed_m15_time
+    global positions, last_entry, daily_pnl, last_processed_m15_time, last_date
 
     if not check_connection(conn):
         logger.warning("Skipping cycle - no connection")
