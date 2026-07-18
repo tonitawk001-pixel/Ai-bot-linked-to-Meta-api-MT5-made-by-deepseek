@@ -33,6 +33,7 @@ from trading_bot.indicators.technical_indicators import compute_all_indicators
 from trading_bot.strategy.gold_scalping_strategy import GoldScalpingStrategy
 from trading_bot.strategy.gold_volatility_filter import GoldVolatilityFilter
 from trading_bot.metaapi.executor import execute_trade, close_position, modify_position
+from trading_bot.telegram_notifier import startup as tg_startup, shutdown as tg_shutdown, trade_opened as tg_open, trade_closed as tg_close, heartbeat as tg_hb, error as tg_err, set_name as tg_setname
 
 
 # === V22 CONFIG ===
@@ -926,6 +927,15 @@ def run_v22():
 
     # State sync: clean orphaned positions from bot_state.json
     sync_state_with_broker(conn)
+
+    # Telegram startup
+    try:
+        acc_info = conn.get_account_info()
+        bal = acc_info.get("balance", 0) if acc_info else 0
+        tg_setname(f"Contabo_{acc_info.get('login', '?')}")
+        tg_startup(balance=bal)
+    except:
+        pass
 
     if not is_paused():
         startup_test(conn)
